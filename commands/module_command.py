@@ -4,6 +4,7 @@ module command definition.
 from typing import Any, Final
 import os
 import sys
+import types
 import fnmatch
 
 
@@ -68,7 +69,7 @@ def _module_command(args: list[str]) -> None:
 
     for module_name in module_names:
         if module_name in sys.modules:
-            mt = sys.modules[module_name]
+            mt: types.ModuleType = sys.modules[module_name]
             if mt is not None:
                 file_path: str
                 if hasattr(mt, "__file__"):

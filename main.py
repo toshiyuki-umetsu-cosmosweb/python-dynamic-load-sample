@@ -2,7 +2,7 @@
 An entry point for a command-line application that dynamically loads
 """
 from __future__ import annotations
-from typing import Optional, Any, Type, Literal, TypedDict, Callable
+from typing import Optional, Any, Type, Literal, TypedDict, Callable, Final
 import sys
 import signal
 import os
@@ -13,6 +13,12 @@ import inspect
 import importlib.machinery
 import importlib.util
 import traceback
+
+
+_RED: Final[str] = "\033[31m"
+""" ANSI escape code for red text. """
+_END: Final[str] = "\033[0m"
+""" ANSI escape code to reset text formatting. """
 
 
 class _CommandEntry(TypedDict):
@@ -82,6 +88,8 @@ class _Application:
                 args: list[str] = shlex.split(command)
                 if args:
                     self._run_command(args)
+            except ValueError as e:
+                print(_RED + str(e) + _END)
             except KeyboardInterrupt:
                 print("\nKeyboardInterrupt received")
                 self._run = False
@@ -110,7 +118,9 @@ class _Application:
         -----
         This method scans the `commands` directory for Python files
         """
-        self._commands.clear()
+        # Remove previous commands.
+        self._unload_commands()
+
         local_dir: str = os.path.dirname(os.path.abspath(__file__))
         print(f"Running script from: {local_dir}")
 
@@ -238,6 +248,23 @@ class _Application:
             return False
 
         return True
+
+    def _unload_commands(self) -> None:
+        """
+        Unload all commands.
+        """
+        self._commands.clear()
+        # Remove all command modules from sys.modules
+        command_dir: str = os.path.join(
+            os.path.dirname(os.path.abspath(__file__)), "commands")
+        unload_modules: list[str] = []
+        for module_name, mt in sys.modules.items():
+            if hasattr(mt, "__file__"):
+                file_path: str = getattr(mt, "__file__")
+                if file_path.startswith(str(command_dir)):
+                    unload_modules.append(module_name)
+        for module_name in unload_modules:
+            del sys.modules[module_name]
 
     def _run_command(self, args: list[str]) -> None:
         """
